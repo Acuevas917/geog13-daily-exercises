@@ -1,0 +1,65 @@
+---
+title: "Daily Exercise 18"
+author: "Anisah Calvin Cuevas"
+date: "7/26/21" 
+output:
+  html_document:
+    theme: journal
+---
+
+
+```{r}
+library(tidyverse)
+library(sf)
+library(gdalUtilities)
+library(elevatr)
+library(rgdal)
+```
+
+```{r}
+read_csv("~/github/geog-13-labs/data/US Cities.csv") %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
+  filter(city == "Goleta") %>%
+  st_transform(5070) %>%
+  st_buffer(5000) %>%
+  st_bbox() %>%
+  st_as_sfc() %>%
+  st_as_sf() ->
+  bb
+```
+
+```{r}
+elevatr::get_elev_raster(bb, z = 10) %>%
+  crop(bb) ->
+  goleta_elev
+```
+
+```{r}
+writeRaster(goleta_elev, "~/github/geog13-daily-exercises/Daily Exercises/Day 17/day-17.rmd", overwrite = TRUE)
+```
+
+```{r}
+threshold = function(x) {ifelse(x <= 0 , NA, 1)}
+calc(goleta_elev, threshold) -> 
+  calc_goleta
+```
+
+```{r}
+multiply_goleta = goleta_elev * calc_goleta 
+plot(multiply_goleta)
+```
+
+```{r}
+(rcl = data.frame(min = seq(0,500,100),max =  seq(100,600, 100), lab = c(0:5)))
+reclassify(multiply_goleta, rcl) ->
+  recl_goleta
+```
+
+```{r}
+s = stack(goleta_elev, calc_goleta, multiply_goleta, recl_goleta) %>%
+    setNames(c("elevation", "land-mask", "terrain", "topography"))
+```
+
+```{r}
+plot(s, col = viridis::viridis(256))
+```
