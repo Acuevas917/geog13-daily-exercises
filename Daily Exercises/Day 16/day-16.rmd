@@ -1,0 +1,27 @@
+---
+title: "Daily Exercise 16"
+author: "Anisah Calvin Cuevas"
+date: "7/26/21"
+output: html_document
+---
+
+```{r setup, message=FALSE}
+library(leaflet)
+library(sf)
+library(tidyverse)
+library(USAboundaries)
+```
+
+```{r}
+read_csv("~/github/geog-13-labs/data/US Cities.csv") %>%
+  filter(city %in% c("Goleta")) %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) ->
+  SB
+SB
+```
+
+```{r}
+leaflet() %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addMarkers(data = SB, popup = ~city)
+```
