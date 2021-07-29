@@ -1,0 +1,92 @@
+---
+title: "Daily Exercise 15"
+author: "Anisah Calvin Cuevas"
+date: "7/28/21"
+output: html_document
+---
+```{r, message=FALSE, results=FALSE, warning=FALSE, echo = FALSE}
+#packages 
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(rmapshaper)
+library(kableExtra)
+library(readxl)
+library(USAboundaries)
+```
+### Question 1
+#### 1.1
+```{r, warning=FALSE, message=FALSE}
+USAboundaries::us_states
+conus = USAboundaries::us_states() %>%
+  filter(!state_name %in% c("Puerto Rico",
+                            "Alaska",
+                            "Hawaii"))
+counties = USAboundaries::us_counties() %>%
+  st_as_sf(counties) %>%
+  filter(!state_name %in% c("Puerto Rico",
+                            "Alaska",
+                            "Hawaii")) %>%
+  st_transform(counties, crs = 5070)
+```
+
+#### 1.2
+```{r, warning=FALSE}
+county_centroid = st_centroid(counties) %>%
+  st_union()
+```
+
+#### 1.3 
+```{r}
+vor_tess = st_voronoi(county_centroid) %>%
+  st_cast() %>%
+  st_as_sf() %>%
+  mutate(id=1:n())
+tri_tess = st_triangulate(county_centroid) %>%
+  st_cast() %>%
+  st_as_sf() %>%
+  mutate(id=1:n())
+gridded_counties = st_make_grid(county_centroid, n = 70, square = T) %>%
+  st_cast() %>%
+  st_as_sf() %>%
+  mutate(id=1:n())
+hex_counties = st_make_grid(county_centroid, n=70, square = F) %>%
+  st_cast() %>%
+  st_as_sf() %>%
+  mutate(id=1:n())
+```
+
+#### 1.4 
+```{r, warning=FALSE}
+vor_tess = st_intersection(vor_tess, st_union(counties))
+tri_tess = st_intersection(tri_tess, st_union(counties))
+gridded_counties = st_intersection(gridded_counties, st_union(counties))
+hex_counties = st_intersection(hex_counties, st_union(counties))
+```
+
+#### 1.5 
+```{r, warning=FALSE}
+counties_simp = rmapshaper::ms_simplify(counties, keep = .005)
+mapview::npts(counties)
+mapview::npts(counties_simp)
+```
+Roughly 50% of the points were removed. This makes the edge of the border less accurate, but makes the computations faster.
+ 
+#### 1.6 
+```{r, warning=FALSE}
+plot_tess = function(sf_obj, title){
+  ggplot()+
+    geom_sf(data = sf_obj, fill = "white", col = "navy", size = .2)+
+    theme_void() +
+    labs(title = title, caption = paste("This tessellation has:", nrow(sf_obj), "features." ))
+  }
+```
+
+#### 1.7 
+```{r, warning=FALSE}
+plot_tess(vor_tess, "Voronoi Tessellation")
+plot_tess(tri_tess, "Triangulated Tessellation")
+plot_tess(gridded_counties, "Gridded Coverage")
+plot_tess(hex_counties, "Hexagonal Coverage")
+plot_tess(counties_simp, "Original")
+```
