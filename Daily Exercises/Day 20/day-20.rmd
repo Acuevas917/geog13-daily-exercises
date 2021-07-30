@@ -1,0 +1,29 @@
+---
+title: "Daily Exercise 20"
+author: "Anisah Calvin Cuevas"
+date: "7/29/21"
+output: html_document
+---
+
+```{r cars, warning=FALSE, message=FALSE}
+library(climateR)
+library(sf)
+library(tidyverse)
+library(USAboundaries)
+library(raster)
+params <-  c("prcp", "tmax", "tmin")
+AOI <- USAboundaries::us_states() %>%
+  filter(state_name == "Mississippi")
+MS <- climateR::getTerraClim(AOI, params, startDate = "2015-11-01")  %>% 
+  stack() %>% 
+  setNames(params)
+values <- values(MS)
+IDX <- which(!is.na(values))
+v <- na.omit(values)
+vs <- scale(v)
+kmeans8 <- kmeans(vs, 8, iter.max = 100)
+clusterraster <- MS$tmax
+values(clusterraster) <- NA
+clusterraster[IDX] <- kmeans8$cluster
+plot(clusterraster, col = RColorBrewer::brewer.pal(8, "YlGnBu"))
+```

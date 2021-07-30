@@ -1,0 +1,63 @@
+---
+title: "Daily Exercise 19"
+author: "Anisah Calvin Cuevas"
+date: "7/29/21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(rgdal)
+library(sf)
+library(tidyverse)
+library(raster)
+library(osmdata)
+library(leaflet)
+```
+
+
+```{r pressure, warning=FALSE, message=FALSE}
+goletadata <- read_csv("~/github/geog-13-labs/data/US Cities.csv") %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>%
+  filter(city == "Goleta") %>% 
+  st_transform(5070) %>% 
+  st_buffer(5000) %>%
+  st_bbox() %>% 
+  st_as_sfc() %>% 
+  st_as_sf()
+elevationobj <- elevatr::get_elev_raster(goletadata, z = 12) %>% 
+                raster::crop(goletadata)
+ 
+raster::writeRaster(elevationobj, filename = "goleta-elev.tif", overwrite = TRUE)
+plot(raster::raster("goleta-elev.tif"))
+raster::raster("goleta-elev.tif")
+```
+
+```{r part 2}
+elevationraster <- raster("goleta-elev.tif")
+threshold <- function(x) {
+                          ifelse(x <= 0 , NA, 1)
+                          }
+thresholdraster <- calc(elevationraster, threshold)
+landraster = thresholdraster * elevationraster
+reclassifiedraster <- reclassify(landraster, data.frame(min = seq(0,500,100),
+                                                        max =  seq(100,600, 100), lab = c(0:5)), lowerTRUE = TRUE)
+goletarasters <- stack(thresholdraster, landraster, reclassifiedraster) 
+  
+goletarasters <- setNames(goletarasters,c("Mask", "Elevation", "Topography"))
+plot(goletarasters, col = viridis::viridis(300))
+```
+
+```{r day 3,warning=FALSE, message=FALSE}
+bounded <- st_bbox(goletarasters) %>% st_as_sfc() %>% st_transform(4326)
+osm <-  osmdata::opq(bounded) %>% 
+    add_osm_feature(key = 'amenity', value = "restaurant") %>%
+    osmdata_sf()
+resturant <-  osm$osm_points %>% 
+    filter(is.na(name) == FALSE)
+elevation <- raster::extract(elevationraster, resturant)
+resturant <- resturant %>% 
+  mutate(elev = elevation)
+leaflet(data = resturant) %>%
+  addProviderTiles(providers$CartoDB) %>% 
+  addMarkers(popup = as.character(resturant$elev), label = ~name)
+```
